@@ -9,4 +9,4 @@ WORKDIR /usr/src/app
 
 EXPOSE 80
 
-CMD ["python", "player2.py"]
+CMD ["python", "player1.py"]
