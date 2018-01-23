@@ -1,4 +1,4 @@
-FROM resin/raspberrypi3-alpine-python
+FROM resin/raspberrypi3-alpine-python:3
 
 ENV INITSYSTEM on
 
@@ -9,4 +9,4 @@ WORKDIR /usr/src/app
 
 EXPOSE 80
 
-CMD ["python", "player1.py"]
+CMD ["python", "player2.py"]

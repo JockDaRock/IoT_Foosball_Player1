@@ -2,8 +2,15 @@ import RPi.GPIO as GPIO
 import json
 import paho.mqtt.client as mqtt
 import time
+import asyncio
 
 thread = None
+
+score_topic = "foosball/score"
+speed_topic = "foosball/speed"
+
+# 192.168.195.7 was IR 829 Broker
+broker_ip = "128.107.70.30"  # <--- Please change IP to match the location of your MQTT broker
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -12,59 +19,42 @@ ir = 15
 ir2 = 18
 
 mqttc = mqtt.Client()
-mqttc.connect("128.107.70.30")  # <--- Please change IP to match the location of your MQTT broker
-# 192.168.195.7 was IR 829 Broker
+mqttc.connect(broker_ip)
 mqttc.loop_start()
 
-GPIO.setup(ir, GPIO.IN, GPIO.PUD_DOWN)
+GPIO.setup(ir, GPIO.IN, GPIO.PUD_UP)
 GPIO.setup(ir2, GPIO.IN, GPIO.PUD_DOWN)
 
 start = 0
 stop = 0
 
 
-def data_collect():
-    GPIO.add_event_detect(ir, GPIO.FALLING, callback=post_score, bouncetime=200)
-    GPIO.add_event_detect(ir2, GPIO.RISING, callback=post_speed, bouncetime=200)
-    while True:
-        time.sleep(0)
+async def data_collect_ir():
+    GPIO.add_event_detect(ir, GPIO.BOTH, callback=process_edge, bouncetime=5)
 
-    """while True:
 
-        time.sleep(0)
-        t1 = time.time()
-        try:
-            channel = GPIO.wait_for_edge(ir,
-                                         GPIO.RISING,
-                                         timeout=5000)
-            if channel != None:
-                rpm = 0
-                brokerMessage = {'Status': 'scored', 'Player': '1', 'Score': 1, 'Data': '0'}
-                print("message sent")
-                mqttc.publish("lights/player1", json.dumps(brokerMessage))
-            else:
-                brokerMessage = {"rpm": 1}
-        except KeyboardInterrupt:
-            connection.close()
-            GPIO.cleanup()
-            sys.exit(0)"""
+def process_edge(channel):
+    if GPIO.input(channel):  # test if pin is high
+        post_speed(channel)
+    else:
+        post_score(channel)
 
 
 def post_score(channel):
     global start
-    start = time.time();
+    start = time.time()
     print("Start time is:")
-    print(start);
+    print(start)
     brokerMessage = {'Status': 'scored', 'Player': '1', 'Score': 1, 'Data': '0'}
     print("message sent")
-    mqttc.publish("score", json.dumps(brokerMessage))
+    mqttc.publish(score_topic, json.dumps(brokerMessage))
 
 
 def post_speed(channel):
     global stop
-    stop = time.time();
+    stop = time.time()
     print("Stop time is:")
-    print(stop);
+    print(stop)
     if stop > start:
         elapsed = stop - start
         print("Elapsed time is:")
@@ -74,20 +64,13 @@ def post_speed(channel):
         print("posting speed")
         print(mph)
         brokerMessage = {'Status': 'speed', 'Speed': mph}
-        mqttc.publish("speed", json.dumps(brokerMessage))
-
-
-# while GPIO.input(ir)==0:
-#     start = time.time();
-#     print("Start time is:")
-#     print(start);
-
-# while GPIO.input(ir)==1:
-#     print("speedRead is")
-#     print(speedRead)
-#     if speedRead is False:
+        mqttc.publish(speed_topic, json.dumps(brokerMessage))
 
 
 if __name__ == '__main__':
-    data_collect()
+    # data_collect()
+    loop = asyncio.get_event_loop()
+    # tasks = [asyncio.ensure_future(data_collect_ir()), asyncio.ensure_future(data_collect_ir2())]
+    tasks = [asyncio.get_event_loop().run_until_complete(data_collect_ir())]
+    loop.run_forever()
     print("started")
